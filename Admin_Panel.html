@@ -550,90 +550,6 @@
             const AUTO_LOGOUT_MS = 10 * 60 * 1000; // 10 minutes of inactivity
             let activeStatusFilter = 'verified';
             let activeClassFilter = 'all';
-            const SOUND_FEEDBACK_MUTE_KEY = 'identify_sound_feedback_mute_v1';
-            let soundFeedbackMuted = false;
-            let soundContext = null;
-
-            function loadSoundPreference() {
-                try {
-                    soundFeedbackMuted = localStorage.getItem(SOUND_FEEDBACK_MUTE_KEY) === 'true';
-                } catch (e) {
-                    soundFeedbackMuted = false;
-                }
-                return soundFeedbackMuted;
-            }
-
-            function ensureSoundContext() {
-                const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                if (!AudioCtx) return null;
-                if (!soundContext) soundContext = new AudioCtx();
-                if (soundContext.state === 'suspended') {
-                    soundContext.resume().catch(() => {});
-                }
-                return soundContext;
-            }
-
-            function playFeedbackTone(kind = 'success') {
-                if (soundFeedbackMuted) return;
-                const ctx = ensureSoundContext();
-                if (!ctx) return;
-                const now = ctx.currentTime;
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-
-                const presets = {
-                    success: [860, 1240],
-                    error: [220, 180],
-                    action: [660, 760]
-                };
-                const [freq1, freq2] = presets[kind] || presets.action;
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(freq1, now);
-                osc.frequency.exponentialRampToValueAtTime(freq2, now + 0.08);
-                gain.gain.setValueAtTime(0.0001, now);
-                gain.gain.exponentialRampToValueAtTime(0.025, now + 0.01);
-                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
-                osc.start(now);
-                osc.stop(now + 0.17);
-            }
-
-            function setSoundFeedbackMuted(muted) {
-                soundFeedbackMuted = !!muted;
-                try {
-                    localStorage.setItem(SOUND_FEEDBACK_MUTE_KEY, soundFeedbackMuted ? 'true' : 'false');
-                } catch (e) {}
-                updateSoundToggleUI();
-            }
-
-            function toggleSoundFeedback() {
-                setSoundFeedbackMuted(!soundFeedbackMuted);
-                if (!soundFeedbackMuted) {
-                    playFeedbackTone('success');
-                }
-            }
-
-            function updateSoundToggleUI() {
-                const toggles = document.querySelectorAll('.sound-feedback-toggle');
-                const knobs = document.querySelectorAll('.sound-feedback-toggle-knob');
-                const icons = document.querySelectorAll('.sound-feedback-toggle-icon');
-                if (!toggles.length || !knobs.length || !icons.length) return;
-                toggles.forEach(toggle => {
-                    toggle.classList.toggle('bg-emerald-500', !soundFeedbackMuted);
-                    toggle.classList.toggle('bg-slate-200', soundFeedbackMuted);
-                    toggle.classList.toggle('border-emerald-500', !soundFeedbackMuted);
-                    toggle.classList.toggle('border-slate-200', soundFeedbackMuted);
-                    toggle.setAttribute('aria-pressed', String(!soundFeedbackMuted));
-                });
-                knobs.forEach(knob => {
-                    knob.classList.toggle('translate-x-5', !soundFeedbackMuted);
-                    knob.classList.toggle('translate-x-0', soundFeedbackMuted);
-                });
-                icons.forEach(icon => {
-                    icon.className = `fa-solid ${soundFeedbackMuted ? 'fa-volume-xmark text-slate-400' : 'fa-volume-high text-emerald-600'} text-[10px]`;
-                });
-            }
 
             // Form Builder State
             let fb_fields = [];
@@ -1568,8 +1484,6 @@
                     showTab('records', { pushHistory: false, replaceHistory: true });
                     restoreDraft();
                     updateCurrentUserUi();
-                    loadSoundPreference();
-                    updateSoundToggleUI();
                     requireLoginAndBoot();
                     // Ensure popstate is handled by app navigation
                     window.addEventListener('popstate', handleBrowserNavigation);
@@ -4313,11 +4227,6 @@
                 };
                 const toneConfig = toneMap[tone] || toneMap.working;
                 modal.classList.remove('hidden');
-                if (tone === 'success') {
-                    playFeedbackTone('success');
-                } else if (tone === 'error') {
-                    playFeedbackTone('error');
-                }
                 titleEl.innerHTML = title || 'Working';
                 msgEl.innerHTML = message || '';
                 icon.className = `w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center ${toneConfig.iconClass}`;
@@ -5783,20 +5692,6 @@
                         </div>
                     </div>
 
-                    <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                        <div class="flex items-center justify-between gap-3">
-                            <div>
-                                <div class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Sound feedback</div>
-                                <div class="text-[11px] text-slate-500">Soft tones for save, verify, and alerts.</div>
-                            </div>
-                            <button class="sound-feedback-toggle relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border border-slate-200 bg-slate-200 transition-colors" type="button" onclick="toggleSoundFeedback()" aria-pressed="false">
-                                <span class="sound-feedback-toggle-knob ml-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition-transform translate-x-0">
-                                    <i class="sound-feedback-toggle-icon fa-solid fa-volume-xmark text-[10px] text-slate-400"></i>
-                                </span>
-                            </button>
-                        </div>
-                    </div>
-
                     <div class="space-y-3">
                         ${(currentUser && currentUser.userId === 'admin') ? `
                         <div onclick="openManageSchools()" class="system-card p-5 rounded-2xl flex items-center gap-4 clickable-card hover:border-purple-300 group">
@@ -5886,7 +5781,6 @@
                         const infoEl = document.getElementById('records-page-info');
                         if (countEl) countEl.innerText = '0/0';
                         if (infoEl) infoEl.innerText = 'Page 1 of 1';
-                        updateSoundToggleUI();
                         lucide.createIcons();
                         return;
                     }
@@ -7915,19 +7809,7 @@
 
 
 
-                    <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                        <div class="flex items-center justify-between gap-3">
-                            <div>
-                                <div class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Sound feedback</div>
-                                <div class="text-[11px] text-slate-500">Soft tones for save, verify, and alerts.</div>
-                            </div>
-                            <button class="sound-feedback-toggle relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border border-slate-200 bg-slate-200 transition-colors" type="button" onclick="toggleSoundFeedback()" aria-pressed="false">
-                                <span class="sound-feedback-toggle-knob ml-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition-transform translate-x-0">
-                                    <i class="sound-feedback-toggle-icon fa-solid fa-volume-xmark text-[10px] text-slate-400"></i>
-                                </span>
-                            </button>
-                        </div>
-                    </div>
+
 
                     <div
                         class="bg-emerald-50 rounded-3xl p-4 border border-emerald-100 flex flex-col items-center mt-4">
@@ -8078,14 +7960,6 @@
             }
 
             document.getElementById('_global_toast_msg').innerHTML = message;
-            const toneHint = (() => {
-                const text = String(message || '').toLowerCase();
-                if (text.includes('error') || text.includes('incorrect') || text.includes('failed') || text.includes('required') || text.includes('missing')) return 'error';
-                if (text.includes('success') || text.includes('verified') || text.includes('restored') || text.includes('saved') || text.includes('deleted') || text.includes('synced') || text.includes('complete') || text.includes('uploaded') || text.includes('removed')) return 'success';
-                return null;
-            })();
-            if (toneHint) playFeedbackTone(toneHint);
-
             requestAnimationFrame(() => {
                 toast.style.opacity = '1';
                 toast.style.transform = 'translateX(-50%) scale(1) translateY(0)';

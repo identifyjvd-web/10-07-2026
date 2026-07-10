@@ -607,90 +607,6 @@
             const AUTO_LOGOUT_MS = 10 * 60 * 1000; // 10 minutes of inactivity
             let activeStatusFilter = 'all';
             let activeClassFilter = 'all';
-            const SOUND_FEEDBACK_MUTE_KEY = 'identify_sound_feedback_mute_v1';
-            let soundFeedbackMuted = false;
-            let soundContext = null;
-
-            function loadSoundPreference() {
-                try {
-                    soundFeedbackMuted = localStorage.getItem(SOUND_FEEDBACK_MUTE_KEY) === 'true';
-                } catch (e) {
-                    soundFeedbackMuted = false;
-                }
-                return soundFeedbackMuted;
-            }
-
-            function ensureSoundContext() {
-                const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                if (!AudioCtx) return null;
-                if (!soundContext) soundContext = new AudioCtx();
-                if (soundContext.state === 'suspended') {
-                    soundContext.resume().catch(() => {});
-                }
-                return soundContext;
-            }
-
-            function playFeedbackTone(kind = 'success') {
-                if (soundFeedbackMuted) return;
-                const ctx = ensureSoundContext();
-                if (!ctx) return;
-                const now = ctx.currentTime;
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-
-                const presets = {
-                    success: [860, 1240],
-                    error: [220, 180],
-                    action: [660, 760]
-                };
-                const [freq1, freq2] = presets[kind] || presets.action;
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(freq1, now);
-                osc.frequency.exponentialRampToValueAtTime(freq2, now + 0.08);
-                gain.gain.setValueAtTime(0.0001, now);
-                gain.gain.exponentialRampToValueAtTime(0.025, now + 0.01);
-                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
-                osc.start(now);
-                osc.stop(now + 0.17);
-            }
-
-            function setSoundFeedbackMuted(muted) {
-                soundFeedbackMuted = !!muted;
-                try {
-                    localStorage.setItem(SOUND_FEEDBACK_MUTE_KEY, soundFeedbackMuted ? 'true' : 'false');
-                } catch (e) {}
-                updateSoundToggleUI();
-            }
-
-            function toggleSoundFeedback() {
-                setSoundFeedbackMuted(!soundFeedbackMuted);
-                if (!soundFeedbackMuted) {
-                    playFeedbackTone('success');
-                }
-            }
-
-            function updateSoundToggleUI() {
-                const toggles = document.querySelectorAll('.sound-feedback-toggle');
-                const knobs = document.querySelectorAll('.sound-feedback-toggle-knob');
-                const icons = document.querySelectorAll('.sound-feedback-toggle-icon');
-                if (!toggles.length || !knobs.length || !icons.length) return;
-                toggles.forEach(toggle => {
-                    toggle.classList.toggle('bg-emerald-500', !soundFeedbackMuted);
-                    toggle.classList.toggle('bg-slate-200', soundFeedbackMuted);
-                    toggle.classList.toggle('border-emerald-500', !soundFeedbackMuted);
-                    toggle.classList.toggle('border-slate-200', soundFeedbackMuted);
-                    toggle.setAttribute('aria-pressed', String(!soundFeedbackMuted));
-                });
-                knobs.forEach(knob => {
-                    knob.classList.toggle('translate-x-5', !soundFeedbackMuted);
-                    knob.classList.toggle('translate-x-0', soundFeedbackMuted);
-                });
-                icons.forEach(icon => {
-                    icon.className = `fa-solid ${soundFeedbackMuted ? 'fa-volume-xmark text-slate-400' : 'fa-volume-high text-emerald-600'} text-[10px]`;
-                });
-            }
 
             // Form Builder State
             let fb_fields = [];
@@ -1718,12 +1634,22 @@
             }
 
             let isLongPressProcessing = false;
-            function triggerHapticFeedback(pattern = 6) {
+            let lastHapticFeedbackAt = 0;
+            function triggerHapticFeedback(pattern = 3) {
                 try {
                     if (!navigator.vibrate || !window.matchMedia('(pointer: coarse)').matches) return;
+                    const now = Date.now();
+                    if (now - lastHapticFeedbackAt < 90) return;
+                    lastHapticFeedbackAt = now;
                     navigator.vibrate(pattern);
                 } catch (e) {}
             }
+
+            document.addEventListener('touchstart', (e) => {
+                const target = e.target && e.target.closest ? e.target.closest('button, [role="button"], [onclick], .clickable-card, .menu-item, .record-preview-zone, .record-selection-zone') : null;
+                if (!target || target.disabled || target.getAttribute('aria-disabled') === 'true') return;
+                triggerHapticFeedback(3);
+            }, { passive: true, capture: true });
 
             function setupFilterCardLongPress(elementId, filterType, isBin = false) {
                 const el = document.getElementById(elementId);
@@ -1742,7 +1668,7 @@
                         isLongPressProcessing = true;
                         lpTriggered = true;
                         
-                        triggerHapticFeedback([8, 16, 8]);
+                        triggerHapticFeedback([4, 8, 4]);
                         
                         // Yield to browser UI thread before heavy operations
                         setTimeout(() => {
@@ -1920,8 +1846,6 @@
                     showTab('records', { pushHistory: false, replaceHistory: true });
                     restoreDraft();
                     updateCurrentUserUi();
-                    loadSoundPreference();
-                    updateSoundToggleUI();
                     requireLoginAndBoot();
                     // Ensure popstate is handled by app navigation
                     window.addEventListener('popstate', handleBrowserNavigation);
@@ -3691,9 +3615,9 @@
                                 return si + year + String(snVal).padStart(3, '0');
                             } else {
                                 if (r.id && String(r.id).startsWith('import_')) {
-                                    return si + 'Import' + String(r.createdAt || Date.now()).slice(-3);
+                                    return si + 'Import';
                                 } else {
-                                    return si + 'Draft' + String(r.createdAt || Date.now()).slice(-3);
+                                    return si + 'Draft';
                                 }
                             }
                         })(),
@@ -3771,7 +3695,7 @@
                     binLpDidTrigger = true;
                     selectionSet.add(String(id));
                     selectedRecords = selectionSet;
-                    triggerHapticFeedback([8, 16, 8]);
+                    triggerHapticFeedback([4, 8, 4]);
                     renderRecycleBin();
                     updateBulkHeader();
                 }
@@ -3784,7 +3708,7 @@
                     binLpDidTrigger = true;
                     selectionSet.add(String(id));
                     selectedRecords = selectionSet;
-                    triggerHapticFeedback([8, 16, 8]);
+                    triggerHapticFeedback([4, 8, 4]);
                     renderRecycleBin();
                     updateBulkHeader();
                 }, 500);
@@ -4789,11 +4713,6 @@
                 };
                 const toneConfig = toneMap[tone] || toneMap.working;
                 modal.classList.remove('hidden');
-                if (tone === 'success') {
-                    playFeedbackTone('success');
-                } else if (tone === 'error') {
-                    playFeedbackTone('error');
-                }
                 titleEl.innerHTML = title || 'Working';
                 msgEl.innerHTML = message || '';
                 icon.className = `w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center ${toneConfig.iconClass}`;
@@ -5652,6 +5571,14 @@
                 renderRecords(res);
             }
             function resetFilters() { document.getElementById('mainSearch').value = ''; filterRecords(); }
+            function getNextRecordAfterPreviewRemoval(currentId, previousIndex) {
+                const list = Array.isArray(currentRenderedRecords)
+                    ? currentRenderedRecords.filter(r => r && String(r.id) !== String(currentId))
+                    : [];
+                if (list.length === 0) return null;
+                if (previousIndex < 0) return list[0];
+                return list[Math.min(previousIndex, list.length - 1)] || null;
+            }
             function toggleSaveLoading(loading) {
                 const btn = document.getElementById('btn-save');
                 const icon = document.getElementById('save-icon');
@@ -6134,9 +6061,9 @@
                                             return si + year + String(snVal).padStart(3, '0');
                                         } else {
                                             if (rec.id && String(rec.id).startsWith('import_')) {
-                                                return si + 'Import' + String(rec.createdAt || Date.now()).slice(-3);
+                                                return si + 'Import';
                                             } else {
-                                                return si + 'Draft' + String(rec.createdAt || Date.now()).slice(-3);
+                                                return si + 'Draft';
                                             }
                                         }
                                     })() }</div>
@@ -6205,11 +6132,12 @@
                     if (blankRecordMode === 'settings') {
                         t.innerHTML = `
                 <div class="p-6 bg-white rounded-3xl space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300 system-card">
-                    <div class="flex items-stretch gap-4 text-left pb-2">
+                    <div class="flex flex-col items-center text-center pb-2">
                         <div onclick="openImagePreviewModal(schoolConfig ? schoolConfig.logo : null)" class="w-24 h-24 rounded-3xl bg-emerald-50 flex items-center justify-center border-2 border-emerald-100 shadow-sm relative overflow-hidden shrink-0 cursor-pointer hover:scale-105 active:scale-95 transition-transform" title="Tap to Zoom Logo">
                             ${schoolConfig.logo ? `<img src="${schoolConfig.logo}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-school-flag text-5xl text-emerald-600"></i>`}
                         </div>
-                        <div class="flex flex-col justify-between py-1 min-w-0 flex-1 h-24">
+                        <h3 class="mt-4 max-w-full text-lg font-black text-slate-800 leading-tight break-words">${schoolConfig.name || 'School Name'}</h3>
+                        <div class="hidden">
                             <!-- School Name (slightly larger) -->
                             <h3 class="text-[15px] font-black text-slate-800 truncate leading-tight">${schoolConfig.name || 'School Name'}</h3>
                             
@@ -6271,20 +6199,6 @@
                             <i class="fa-solid fa-chevron-right text-slate-300 text-xs mr-1 group-hover:text-blue-500 transition-colors"></i>
                         </div>
                         ` : ''}
-
-                        <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                            <div class="flex items-center justify-between gap-3">
-                                <div>
-                                    <div class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Sound feedback</div>
-                                    <div class="text-[11px] text-slate-500">Soft tones for save, verify, and alerts.</div>
-                                </div>
-                                <button class="sound-feedback-toggle relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border border-slate-200 bg-slate-200 transition-colors" type="button" onclick="toggleSoundFeedback()" aria-pressed="false">
-                                    <span class="sound-feedback-toggle-knob ml-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition-transform translate-x-0">
-                                        <i class="sound-feedback-toggle-icon fa-solid fa-volume-xmark text-[10px] text-slate-400"></i>
-                                    </span>
-                                </button>
-                            </div>
-                        </div>
 
                         <div onclick="openDataInformation()" class="system-card p-5 rounded-2xl flex items-center gap-4 clickable-card hover:border-amber-300 group">
                             <div class="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-all shadow-sm">
@@ -6401,7 +6315,6 @@
                         const infoEl = document.getElementById('records-page-info');
                         if (countEl) countEl.innerText = '0/0';
                         if (infoEl) infoEl.innerText = 'Page 1 of 1';
-                        updateSoundToggleUI();
                         lucide.createIcons();
                         return;
                     }
@@ -7633,7 +7546,7 @@
                 }
             }
 
-            // Verify current previewRecord and move to next pending
+            // Verify current previewRecord and move to the next visible record in the active section.
             async function verifyAndGoNext() {
                 if (isActionPending) return;
                 commitUnsavedPreviewRecord();
@@ -7641,6 +7554,8 @@
                 isActionPending = true;
                 const localRec = { ...previewRecord };
                 const nowTs = Date.now();
+                const previousList = Array.isArray(currentRenderedRecords) ? currentRenderedRecords.slice() : [];
+                const previousIndex = previousList.findIndex(r => r && String(r.id) === String(localRec.id));
                 
                 showToast((localRec.studentName || 'Record') + ' Verified Successfully');
                 
@@ -7655,12 +7570,11 @@
                 
                 filterRecords();
                 
-                const currentIdNew = localRec.id;
-                const pendingList = db.filter(x => !hasRecordDocument(x) && x.verified !== true && x.isDeleted !== true && x.id !== currentIdNew);
+                const nextRecord = getNextRecordAfterPreviewRemoval(localRec.id, previousIndex);
 
-                if (pendingList.length > 0) {
+                if (nextRecord) {
                     isPendingBatch = true;
-                    openStudentDetailPopup(pendingList[0].id, false, true);
+                    openStudentDetailPopup(nextRecord.id, false, true);
                 } else {
                     isPendingBatch = false;
                     previewRecord = null;
@@ -7982,7 +7896,7 @@
                 _lpDidTrigger = false;
                 _lpTimer = setTimeout(() => {
                     _lpDidTrigger = true;
-                    triggerHapticFeedback([8, 16, 8]);
+                    triggerHapticFeedback([4, 8, 4]);
                     if (activeStatusFilter === 'recycleBin' || activeStatusFilter === 'unverified' || activeStatusFilter === 'pending' || (currentUser && currentUser.userId === 'admin' && (activeStatusFilter === 'verified' || activeStatusFilter === 'all'))) {
                         toggleRecordSelection(id, null);
                     }
@@ -8019,11 +7933,11 @@
                     let diff = touchEndX - _previewTouchStartX;
                     if (diff > 60) {
                         // Swiped right -> Go to previous card
-                        triggerHapticFeedback(6);
+                        triggerHapticFeedback(3);
                         openPrevPreview();
                     } else if (diff < -60) {
                         // Swiped left -> Go to next card
-                        triggerHapticFeedback(6);
+                        triggerHapticFeedback(3);
                         openNextPreview();
                     }
                 }
@@ -8078,7 +7992,7 @@
                 } else {
                     currentIndex = (currentIndex - 1 + statuses.length) % statuses.length;
                 }
-                triggerHapticFeedback(6);
+                triggerHapticFeedback(3);
                 setChipFilter('status', statuses[currentIndex]);
             }
 
@@ -8394,24 +8308,24 @@
                     class="absolute top-5 right-6 w-9 h-9 rounded-full bg-slate-100/50 hover:bg-rose-50 hover:text-rose-500 flex items-center justify-center text-slate-500 transition active:scale-90 z-20">
                     <i class="fa-solid fa-xmark text-sm"></i>
                 </button>
-                <div class="px-8 pt-10 pb-6 flex items-stretch gap-4 text-left">
+                <div class="px-8 pt-12 pb-6 flex flex-col items-center text-center">
                     <div id="settings-logo-container" onclick="openImagePreviewModal(schoolConfig ? schoolConfig.logo : null)"
-                        class="w-20 h-20 rounded-3xl bg-emerald-50 flex items-center justify-center border-2 border-emerald-100 overflow-hidden shrink-0 shadow-sm cursor-pointer hover:scale-105 active:scale-95 transition-transform" title="Tap to Zoom Logo">
-                        <i class="fa-solid fa-school-flag text-3xl text-emerald-600"></i>
+                        class="w-24 h-24 rounded-3xl bg-emerald-50 flex items-center justify-center border-2 border-emerald-100 overflow-hidden shrink-0 shadow-sm cursor-pointer hover:scale-105 active:scale-95 transition-transform" title="Tap to Zoom Logo">
+                        <i class="fa-solid fa-school-flag text-4xl text-emerald-600"></i>
                     </div>
-                    <div class="flex flex-col justify-between py-0.5 min-w-0 flex-1 h-20">
+                    <div class="mt-4 min-w-0 max-w-full">
                         <!-- School Name (larger) -->
-                        <h3 id="settings-school-name-display" class="text-sm font-black text-slate-800 truncate leading-tight">School Name</h3>
+                        <h3 id="settings-school-name-display" class="text-lg font-black text-slate-800 leading-tight break-words">School Name</h3>
                         
                         <!-- Address (immediately under School Name, same text size) -->
-                        <div class="text-[9.5px] text-slate-700 font-extrabold leading-tight truncate">
+                        <div class="hidden text-[9.5px] text-slate-700 font-extrabold leading-tight truncate">
                             <a id="settings-school-address-link" href="#" target="_blank" class="hover:underline hover:text-emerald-700 transition-colors">
                                 <i class="fa-solid fa-location-dot text-emerald-600 mr-1 text-[8.5px]"></i><span id="settings-school-address-display">--</span>
                             </a>
                         </div>
 
                         <!-- Contact & Mobile (inline, same text size) -->
-                        <div class="text-[9.5px] text-slate-700 font-extrabold leading-tight truncate flex items-center gap-1.5">
+                        <div class="hidden text-[9.5px] text-slate-700 font-extrabold leading-tight truncate flex items-center gap-1.5">
                             <span class="truncate"><i class="fa-solid fa-user-tie text-emerald-600 mr-1 text-[8.5px]"></i><span id="settings-school-contact-display">--</span></span>
                             <span class="text-slate-400">•</span>
                             <span class="text-slate-800 font-black tracking-wider uppercase shrink-0">
@@ -8422,7 +8336,7 @@
                         </div>
 
                         <!-- Email (same text size) -->
-                        <div class="text-[9.5px] text-slate-800 font-black tracking-wider lowercase truncate">
+                        <div class="hidden text-[9.5px] text-slate-800 font-black tracking-wider lowercase truncate">
                             <a id="settings-school-email-link" href="#" class="hover:underline hover:text-emerald-700 transition-colors">
                                 <i class="fa-solid fa-envelope text-emerald-600 mr-1 text-[8.5px]"></i><span id="settings-school-email-display">--</span>
                             </a>
@@ -8451,20 +8365,6 @@
                     </div>
 
 
-
-                    <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                        <div class="flex items-center justify-between gap-3">
-                            <div>
-                                <div class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Sound feedback</div>
-                                <div class="text-[11px] text-slate-500">Soft tones for save, verify, and alerts.</div>
-                            </div>
-                            <button class="sound-feedback-toggle relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border border-slate-200 bg-slate-200 transition-colors" type="button" onclick="toggleSoundFeedback()" aria-pressed="false">
-                                <span class="sound-feedback-toggle-knob ml-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition-transform translate-x-0">
-                                    <i class="sound-feedback-toggle-icon fa-solid fa-volume-xmark text-[10px] text-slate-400"></i>
-                                </span>
-                            </button>
-                        </div>
-                    </div>
 
                     <div
                         class="bg-emerald-50 rounded-3xl p-4 border border-emerald-100 flex flex-col items-center mt-4">
@@ -8601,13 +8501,7 @@
             }
 
             document.getElementById('_global_toast_msg').innerHTML = message;
-            const toneHint = (() => {
-                const text = String(message || '').toLowerCase();
-                if (text.includes('error') || text.includes('incorrect') || text.includes('failed') || text.includes('required') || text.includes('missing')) return 'error';
-                if (text.includes('success') || text.includes('verified') || text.includes('restored') || text.includes('saved') || text.includes('deleted') || text.includes('synced') || text.includes('complete') || text.includes('uploaded') || text.includes('removed')) return 'success';
-                return null;
-            })();
-            if (toneHint) playFeedbackTone(toneHint);
+            // Sound feedback removed.
 
             requestAnimationFrame(() => {
                 toast.style.opacity = '1';
