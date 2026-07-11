@@ -2714,11 +2714,19 @@
 
                 filterRow.classList.toggle('hidden', showBlankRecordCard);
                 const isAnyMode = mode !== 'none';
+                const isAdmin = (typeof currentUser !== 'undefined' && currentUser && currentUser.userId === 'admin');
                 
-                if ((mode === 'builder' || mode === 'manage_school' || mode === 'edit_about' || mode === 'dataInfo' || mode === 'schoolActivity') && typeof previousBlankRecordMode !== 'undefined' && previousBlankRecordMode === 'settings') {
-                    icon.className = 'fa-solid fa-arrow-left';
-                } else {
-                    icon.className = isAnyMode ? 'fa-solid fa-xmark' : 'fa-solid fa-plus';
+                let currentIcon = document.getElementById('toggle-icon');
+                if (currentIcon) {
+                    if ((mode === 'builder' || mode === 'manage_school' || mode === 'edit_about' || mode === 'dataInfo' || mode === 'schoolActivity') && typeof previousBlankRecordMode !== 'undefined' && previousBlankRecordMode === 'settings') {
+                        currentIcon.className = 'fa-solid fa-arrow-left text-sm';
+                    } else {
+                        if (isAdmin && !isAnyMode) {
+                            currentIcon.className = 'fa-solid fa-right-from-bracket text-sm';
+                        } else {
+                            currentIcon.className = isAnyMode ? 'fa-solid fa-xmark text-sm' : 'fa-solid fa-plus text-sm';
+                        }
+                    }
                 }
                 
                 const addBtnIcon = document.getElementById('add-btn-icon');
@@ -2730,9 +2738,11 @@
                     }
                 }
                 
-                btn.className = isAnyMode
-                    ? 'w-9 h-9 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform'
-                    : 'w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform';
+                if (btn) {
+                    btn.className = isAnyMode
+                        ? 'w-9 h-9 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform'
+                        : (isAdmin ? 'w-9 h-9 rounded-full bg-rose-500 text-white flex items-center justify-center font-bold text-xs active:scale-95 transition-transform overflow-hidden p-0 border-2 border-rose-600' : 'w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform');
+                }
 
                 let labelText = '';
                 let headerHtml = '';
