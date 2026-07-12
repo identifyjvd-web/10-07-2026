@@ -1,486 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="mobile-web-app-capable" content="yes">
-    <link rel="icon" type="image/png" href="./fevicon.png">
-    <link rel="apple-touch-icon" href="./idapplogo.png">
-    <title id="page-title">IDentify</title>
-    <!-- External Libraries -->
-    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
-    <link rel="stylesheet" href="global.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy, limit, setDoc, onSnapshot, getDoc, runTransaction, enableMultiTabIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, sendPasswordResetEmail, createUserWithEmailAndPassword, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-        import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
-
-        const firebaseConfig = {
-    apiKey: "AIzaSyBMZ3LUNSQubKjanv4MNyDNsvKwPmsKQY8",
-    authDomain: "id3files.firebaseapp.com",
-    projectId: "id3files",
-    storageBucket: "id3files.firebasestorage.app",
-    messagingSenderId: "839961631978",
-    appId: "1:839961631978:web:4300cbe1fcb1461878cb93"
-};
-
-        try {
-            const app = initializeApp(firebaseConfig);
-            window.db = getFirestore(app);
-            enableMultiTabIndexedDbPersistence(window.db).catch((err) => {
-                if (err.code == 'failed-precondition') {
-                    console.warn("Multiple tabs open, persistence can only be enabled in one tab at a time.");
-                } else if (err.code == 'unimplemented') {
-                    console.warn("Browser does not support persistence");
-                }
-            });
-            window.auth = getAuth(app);
-            window.storage = getStorage(app);
-
-            window.firebaseAPI = {
-                initializeApp, getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, sendPasswordResetEmail, createUserWithEmailAndPassword, signInAnonymously, onAuthStateChanged,
-                db: window.db, auth: window.auth, storage: window.storage, firebaseConfig,
-                collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy, limit, setDoc, onSnapshot, getDoc, runTransaction,
-                signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, createUserWithEmailAndPassword,
-                getStorage, ref, uploadString, getDownloadURL,
-                firebaseConfig
-            };
-            console.log("Firebase initialized successfully.");
-
-            onAuthStateChanged(window.auth, (user) => {
-                if (!user) {
-                    localStorage.removeItem('student_auth_v1');
-                    window.location.replace('Login_Panel.html?msg=session_expired');
-                } else if (user.email && (user.email.toLowerCase().includes('admin') || user.email.toLowerCase() === 'identify.jvd@gmail.com')) {
-                    window.location.replace('Admin_Panel.html');
-                }
-            });
-        } catch (e) {
-            console.error("Firebase initialization error:", e);
-        }
-    </script>
-
-                            <link rel="manifest" href="manifest.json">
-    <script src="db-helper.js"></script>
-    <script src="cropper-helper.js"></script>
-    <script src="card-generator.js"></script>
-</head>
-
-<body class="flex flex-col h-screen">
-
-    <div id="initial-splash-screen" class="fixed inset-0 z-[99999] bg-[#f8fafd] flex flex-col items-center justify-center transition-opacity duration-500">
-        <div class="flex flex-col items-center justify-center drop-shadow-2xl -mt-96">
-            <img src="./idapplogo.png" class="w-[180px] h-[180px] object-contain mix-blend-multiply">
-        </div>
-        <!-- 3 Loading Dots -->
-        <div class="absolute bottom-16 flex space-x-3 justify-center items-center">
-            <div class="h-5 w-5 bg-[#05996c] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-            <div class="h-5 w-5 bg-[#05996c] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-            <div class="h-5 w-5 bg-[#05996c] rounded-full animate-bounce"></div>
-        </div>
-    </div>
-
-    <div id="login-overlay" class="fixed inset-0 z-[11000] hidden items-center justify-center bg-[#f0f4f8] p-4 overflow-y-auto">
-        <div
-            class="relative w-full max-w-[340px] rounded-[28px] bg-white shadow-[0_8px_40px_rgba(0,0,0,0.13)] overflow-hidden border border-slate-100 mt-2">
-            
-            <!-- Punch Hole Cutout (Lanyard Slot) -->
-            <div class="absolute top-2.5 left-1/2 -translate-x-1/2 w-12 h-3 bg-[#f0f4f8] rounded-full shadow-[inset_0_2px_5px_rgba(0,0,0,0.08)] flex items-center justify-center z-20 border border-slate-100/50">
-                <div class="w-8 h-1 bg-slate-200/80 rounded-full"></div>
-            </div>
-
-            <div class="px-6 pt-9 pb-7">
-
-                <!-- Icon Badge -->
-                <div class="flex flex-col items-center mb-5">
-                    <div
-                        class="w-[70px] h-[70px] rounded-full border-[3px] border-emerald-500 flex items-center justify-center bg-white shadow-sm mb-3">
-                        <div id="login-logo-container" class="w-[52px] h-[52px] rounded-full bg-emerald-50 flex items-center justify-center overflow-hidden">
-                            <i data-lucide="id-card" class="w-7 h-7 text-emerald-600"></i>
-                        </div>
-                    </div>
-                    <h2 id="login-school-name"
-                        class="text-[17px] font-extrabold text-slate-800 text-center leading-snug">Delhi Public School
-                    </h2>
-                    <p class="mt-1 text-[12px] font-semibold text-emerald-700">ID Card Management Software</p>
-                </div>
-
-                <!-- Fields -->
-                <div class="mt-2">
-                    <!-- Normal Login Fields -->
-                    <div id="login-normal-fields" class="space-y-4">
-                        <div>
-                            <label for="login-user-id"
-                                class="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
-                                <i data-lucide="mail" class="w-3.5 h-3.5 text-emerald-500"></i> School Email
-                            </label>
-                            <input id="login-user-id" type="email"
-                                class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition"
-                                placeholder="Enter School Email">
-                        </div>
-                        <div>
-                            <label
-                                class="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
-                                <i data-lucide="lock-keyhole" class="w-3.5 h-3.5 text-emerald-500"></i> Password
-                            </label>
-                            <div class="relative">
-                                <input id="login-password" type="password"
-                                    class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 pr-12 text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition"
-                                    placeholder="Enter password">
-                                <button id="login-password-toggle" type="button" onclick="toggleLoginPassword()"
-                                    class="absolute inset-y-0 right-0 flex items-center justify-center px-4 text-slate-400 hover:text-emerald-600 transition"
-                                    aria-label="Show password">
-                                    <i id="login-password-toggle-icon" data-lucide="eye" class="w-5 h-5"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div id="login-error"
-                            class="hidden rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-500">
-                        </div>
-                        <button id="login-submit-btn" type="button" onclick="submitLogin()"
-                            class="w-full rounded-2xl bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 px-4 py-4 text-[15px] font-extrabold text-white shadow-sm flex items-center justify-center gap-2 transition mt-1">
-                            <i data-lucide="log-in" class="w-5 h-5"></i> Login
-                        </button>
-                        
-                        <div id="forgot-password-container" class="mt-4 text-center hidden">
-                            <button type="button" onclick="showForgotFields(true)" class="text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition">
-                                Forgot Password?
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Forgot Password Fields -->
-                    <div id="login-forgot-fields" class="space-y-4 hidden animate-in fade-in duration-200">
-                        <div id="forgot-inputs-wrapper" class="space-y-4">
-                            <div>
-                                <label
-                                    class="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
-                                    <i data-lucide="mail" class="w-3.5 h-3.5 text-emerald-500"></i> Admin Email
-                                </label>
-                                <input id="login-forgot-email" type="email"
-                                    class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition"
-                                    placeholder="Enter Admin Email">
-                            </div>
-                            <button id="forgot-submit-btn" type="button" onclick="submitForgotPassword()"
-                                class="w-full rounded-2xl bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 px-4 py-4 text-[15px] font-extrabold text-white shadow-sm flex items-center justify-center gap-2 transition mt-1">
-                                Next <i class="fa-solid fa-arrow-right text-sm"></i>
-                            </button>
-                            
-                            <div class="mt-4 text-center">
-                                <button type="button" onclick="showForgotFields(false)" class="text-sm font-semibold text-slate-500 hover:text-slate-700 transition">
-                                    Back to Login
-                                </button>
-                            </div>
-                        </div>
-                        <div id="forgot-error"
-                            class="hidden rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-500">
-                        </div>
-                        <div id="forgot-success"
-                            class="hidden rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-                        </div>
-                        <div id="forgot-timer-msg" class="hidden text-xs font-bold text-slate-500 text-center mt-2">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Footer -->
-                <div class="mt-5 relative w-full pb-2 flex flex-col items-center justify-center">
-                    <div class="flex items-center gap-1.5">
-                        <i class="fa-solid fa-id-card text-emerald-600 text-[13px]"></i>
-                        <span class="text-[12px] font-black tracking-widest text-emerald-600">IDentify</span>
-                    </div>
-                    <div class="text-[10px] font-bold tracking-widest text-emerald-500 uppercase mt-0.5">By: Javed Ansari</div>
-                    
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="app-container" class="flex flex-col flex-1 overflow-hidden h-full relative">
-        <!-- Premium Mesh Background & Graphics -->
-        <div class="absolute inset-0 pointer-events-none z-0" style="background-image: radial-gradient(rgba(5, 153, 108, 0.06) 1.2px, transparent 1.2px); background-size: 16px 16px; opacity: 0.85;"></div>
-        
-        <!-- Colorful Mesh Spheres -->
-        <div class="absolute top-[-50px] left-[-50px] w-48 h-48 rounded-full bg-emerald-400/10 blur-3xl pointer-events-none z-0"></div>
-        <div class="absolute bottom-[100px] right-[-50px] w-64 h-64 rounded-full bg-blue-300/10 blur-3xl pointer-events-none z-0"></div>
-        
-        <!-- Circular Radar-Style Wireframe Graphic -->
-        <svg class="absolute top-[-30px] right-[-40px] w-48 h-48 opacity-10 text-emerald-700 pointer-events-none z-0" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="0.3">
-            <circle cx="50" cy="50" r="10" />
-            <circle cx="50" cy="50" r="20" />
-            <circle cx="50" cy="50" r="30" />
-            <circle cx="50" cy="50" r="40" />
-            <circle cx="50" cy="50" r="50" />
-            <circle cx="50" cy="50" r="60" />
-            <line x1="0" y1="50" x2="100" y2="50" />
-            <line x1="50" y1="0" x2="50" y2="100" />
-        </svg>
-
-        <!-- Abstract Wave Grid Graphic -->
-        <svg class="absolute bottom-[140px] left-[-40px] w-56 h-32 opacity-[0.08] text-blue-600 pointer-events-none z-0" viewBox="0 0 100 50" fill="none" stroke="currentColor" stroke-width="0.3">
-            <path d="M0,25 C20,10 40,40 60,25 C80,10 100,25 100,25" />
-            <path d="M0,30 C20,15 40,45 60,30 C80,15 100,30 100,30" />
-            <path d="M0,20 C20,5 40,35 60,20 C80,5 100,20 100,20" />
-            <path d="M0,35 C20,20 40,50 60,35 C80,20 100,35 100,35" />
-        </svg>
-
-        <!-- Elegant Sparkles & Floating Nodes -->
-        <div class="absolute top-[80px] left-[30px] opacity-15 text-emerald-600 animate-pulse pointer-events-none z-0"><i class="fa-solid fa-sparkles text-base"></i></div>
-        <div class="absolute top-[180px] right-[40px] opacity-15 text-blue-500 animate-pulse pointer-events-none z-0" style="animation-delay: 1s;"><i class="fa-solid fa-star text-[10px]"></i></div>
-        <div class="absolute bottom-[280px] left-[20px] opacity-10 text-emerald-500 animate-pulse pointer-events-none z-0" style="animation-delay: 2s;"><i class="fa-solid fa-circle-nodes text-xs"></i></div>
-
-
-
-        <div id="records" class="tab-section">
-            <main class="flex flex-col h-full overflow-hidden bg-transparent relative">
-                <header class="home-header px-3 pt-2 pb-1 z-[1000] border-b border-gray-100">
-                    <div id="records-header-standard-db"
-                        class="h-12 rounded-full flex items-center pl-2 pr-2 gap-2 bg-white"
-                        style="box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);">
-                        <button id="profile-btn"
-                            class="w-9 h-9 rounded-full bg-white text-emerald-700 flex items-center justify-center font-bold text-xs active:scale-95 transition-transform overflow-hidden p-0 border-2 border-emerald-600"
-                            onclick="openSchoolConfig()">
-                            <i class="fa-solid fa-school"></i>
-                        </button>
-                        <div id="search-input-container" class="flex-1 min-w-0 relative flex items-center">
-                            <i id="search-icon" class="fa-solid fa-magnifying-glass text-slate-400 ml-2"></i>
-                            <input type="text" id="mainSearch" placeholder="Search students..."
-                                class="bg-transparent border-none outline-none w-full text-sm font-medium ml-2 text-slate-700 placeholder-slate-400 transition-all"
-                                oninput="onSearchInput()">
-                            <h2 id="records-page-info-db"
-                                class="absolute inset-y-0 left-0 right-10 flex items-center text-[16px] font-extrabold text-[#059669] tracking-tight truncate leading-none pt-[1px] bg-white pointer-events-none hidden pl-2">
-                            </h2>
-                        </div>
-                        <div id="bulk-actions-container"
-                            class="hidden items-center gap-1.5 ml-auto pr-1 animate-in fade-in zoom-in duration-200">
-                                <button id="btn-bulk-restore" onclick="bulkBinRestore()"
-                                class="hidden w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center active:scale-90 transition-transform shadow-sm"
-                                title="Restore Selected">
-                                <i class="fa-solid fa-rotate-left text-sm"></i>
-                            </button>
-                            <button id="btn-bulk-delete" onclick="bulkDeleteSelected()"
-                                class="w-9 h-9 rounded-full bg-rose-500 text-white flex items-center justify-center active:scale-90 transition-transform shadow-sm"
-                                title="Delete Selected">
-                                <i class="fa-solid fa-trash-can text-sm"></i>
-                            </button>
-                            <button id="btn-bulk-verify" onclick="bulkVerifySelected()"
-                                class="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center active:scale-90 transition-transform shadow-sm"
-                                title="Verify Selected">
-                                <span class="material-symbols-outlined text-[20px]"
-                                    style="font-variation-settings: 'FILL' 1;">verified</span>
-                            </button>
-                        </div>
-                        <button id="btn-bulk-select-toggle" onclick="handleBulkToggleSelectAll()"
-                            class="hidden h-9 rounded-full bg-emerald-600 text-white border border-emerald-500 flex items-center justify-center px-3 gap-1 active:scale-95 transition-transform shadow-sm hover:bg-emerald-700"
-                            title="Select All / Deselect All">
-                            <span id="bulk-select-count" class="text-sm font-black text-white">0</span>
-                            <i id="bulk-select-icon" class="fa-solid fa-square text-sm text-white"></i>
-                        </button>
-                        <!-- Selection Toggle Button (Replaces Plus when items selected or in Unverified view) -->
-                        <button id="toggle-form-btn" onclick="toggleStudentForm()"
-                            class="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-lg active:scale-90 transition-all relative">
-                            <i id="toggle-icon" class="fa-solid fa-plus text-sm"></i>
-                        </button>
-                    </div>
-
-                    <div class="mt-1 flex items-center gap-1 overflow-x-auto custom-scroll pb-1 filter-chips-container"
-                        id="class-filter-row">
-                        <!-- Class Selection Dropdown -->
-                        <div class="relative shrink-0">
-                            <button id="filterClassBtn" class="school-filter-btn flex items-center gap-2"
-                                onclick="toggleFilterMenu('class', this)">
-                                <span id="filterClassText" class="filter-class-text-container">All Class</span>
-                            </button>
-                        </div>
-
-
-
-                        <button id="btn-all-data" class="school-filter-btn active shrink-0" style="display: none;"
-                            onclick="setChipFilter('status', 'all')">All Data</button>
-                        <button id="btn-verified" class="school-filter-btn shrink-0 flex items-center gap-1" style="display: none;"
-                            onclick="setChipFilter('status', 'verified')" title="Verified"><span
-                                class="material-symbols-outlined text-[18px]"
-                                style="font-variation-settings: 'FILL' 1;">verified</span></button>
-                        <button id="btn-unverified"
-                            class="school-filter-btn pending-chip shrink-0 flex items-center gap-1" style="display: none;"
-                            onclick="setChipFilter('status', 'unverified')" title="Unverified"><span
-                                class="material-symbols-outlined text-[18px]"
-                                style="font-variation-settings: 'FILL' 1;">unpublished</span></button>
-                        <button id="btn-pending" class="school-filter-btn pending-chip shrink-0 flex items-center gap-1" style="display: none;"
-                            onclick="setChipFilter('status', 'pending')" title="Pending (No Photo)"><span
-                                class="material-symbols-outlined text-[18px]"
-                                style="font-variation-settings: 'FILL' 1;">no_photography</span></button>
-                        <button id="btn-recycle-bin" class="school-filter-btn pending-chip shrink-0 flex items-center gap-1" style="display: none;"
-                            onclick="setChipFilter('status', 'recycleBin')" title="Recycle Bin"><span
-                                class="material-symbols-outlined text-[18px]"
-                                style="font-variation-settings: 'FILL' 1;">delete</span></button>
-
-                        <!-- Sort Button -->
-                        <div class="relative shrink-0 flex items-center ml-auto pl-1 pr-[2px]">
-                            <button id="filterSortBtn"
-                                class="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 active:scale-95 transition-all"
-                                onclick="handleSortToggle(event)" title="Sort Data">
-                                <i class="fa-solid fa-clock-rotate-left text-[16px] text-slate-500"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                </header>
-
-                <!-- Records List View -->
-                <div id="records-list-view" class="pt-1 flex-1 flex flex-col min-h-0 overflow-hidden">
-                    <div class="flex-1 overflow-y-auto custom-scroll system-scroll px-4 pt-1 pb-6" ontouchstart="handleHomeTouchStart(event)" ontouchend="handleHomeTouchEnd(event)">
-                        <div id="records-list-container" class="system-card rounded-3xl overflow-hidden">
-                            <!-- Premium Skeleton Loading Animation -->
-                            <div id="skeleton-loader" class="divide-y divide-gray-50 bg-white">
-                                <!-- Skeleton Item 1 -->
-                                <div class="flex items-stretch border-b border-gray-100 last:border-0 h-[72px] animate-pulse">
-                                    <div class="w-16 bg-slate-100/70 flex-shrink-0 flex items-center justify-center border-r border-gray-50 relative overflow-hidden"></div>
-                                    <div class="flex-1 px-4 flex flex-col justify-center gap-2 min-w-0">
-                                        <div class="h-3.5 bg-slate-100 rounded-md w-[45%]"></div>
-                                        <div class="h-2.5 bg-slate-100 rounded-md w-[60%]"></div>
-                                    </div>
-                                    <div class="px-4 flex flex-col items-end justify-center gap-2 min-w-[80px]">
-                                        <div class="h-2.5 bg-slate-100 rounded-md w-8"></div>
-                                        <div class="h-2 bg-slate-100 rounded-md w-12"></div>
-                                    </div>
-                                </div>
-                                <!-- Skeleton Item 2 -->
-                                <div class="flex items-stretch border-b border-gray-100 last:border-0 h-[72px] animate-pulse">
-                                    <div class="w-16 bg-slate-100/70 flex-shrink-0 flex items-center justify-center border-r border-gray-50 relative overflow-hidden"></div>
-                                    <div class="flex-1 px-4 flex flex-col justify-center gap-2 min-w-0">
-                                        <div class="h-3.5 bg-slate-100 rounded-md w-[35%]"></div>
-                                        <div class="h-2.5 bg-slate-100 rounded-md w-[50%]"></div>
-                                    </div>
-                                    <div class="px-4 flex flex-col items-end justify-center gap-2 min-w-[80px]">
-                                        <div class="h-2.5 bg-slate-100 rounded-md w-8"></div>
-                                        <div class="h-2 bg-slate-100 rounded-md w-12"></div>
-                                    </div>
-                                </div>
-                                <!-- Skeleton Item 3 -->
-                                <div class="flex items-stretch border-b border-gray-100 last:border-0 h-[72px] animate-pulse">
-                                    <div class="w-16 bg-slate-100/70 flex-shrink-0 flex items-center justify-center border-r border-gray-50 relative overflow-hidden"></div>
-                                    <div class="flex-1 px-4 flex flex-col justify-center gap-2 min-w-0">
-                                        <div class="h-3.5 bg-slate-100 rounded-md w-[55%]"></div>
-                                        <div class="h-2.5 bg-slate-100 rounded-md w-[40%]"></div>
-                                    </div>
-                                    <div class="px-4 flex flex-col items-end justify-center gap-2 min-w-[80px]">
-                                        <div class="h-2.5 bg-slate-100 rounded-md w-8"></div>
-                                        <div class="h-2 bg-slate-100 rounded-md w-12"></div>
-                                    </div>
-                                </div>
-                                <!-- Skeleton Item 4 -->
-                                <div class="flex items-stretch border-b border-gray-100 last:border-0 h-[72px] animate-pulse">
-                                    <div class="w-16 bg-slate-100/70 flex-shrink-0 flex items-center justify-center border-r border-gray-50 relative overflow-hidden"></div>
-                                    <div class="flex-1 px-4 flex flex-col justify-center gap-2 min-w-0">
-                                        <div class="h-3.5 bg-slate-100 rounded-md w-[40%]"></div>
-                                        <div class="h-2.5 bg-slate-100 rounded-md w-[60%]"></div>
-                                    </div>
-                                    <div class="px-4 flex flex-col items-end justify-center gap-2 min-w-[80px]">
-                                        <div class="h-2.5 bg-slate-100 rounded-md w-8"></div>
-                                        <div class="h-2 bg-slate-100 rounded-md w-12"></div>
-                                    </div>
-                                </div>
-                                <!-- Skeleton Item 5 -->
-                                <div class="flex items-stretch border-b border-gray-100 last:border-0 h-[72px] animate-pulse">
-                                    <div class="w-16 bg-slate-100/70 flex-shrink-0 flex items-center justify-center border-r border-gray-50 relative overflow-hidden"></div>
-                                    <div class="flex-1 px-4 flex flex-col justify-center gap-2 min-w-0">
-                                        <div class="h-3.5 bg-slate-100 rounded-md w-[50%]"></div>
-                                        <div class="h-2.5 bg-slate-100 rounded-md w-[45%]"></div>
-                                    </div>
-                                    <div class="px-4 flex flex-col items-end justify-center gap-2 min-w-[80px]">
-                                        <div class="h-2.5 bg-slate-100 rounded-md w-8"></div>
-                                        <div class="h-2 bg-slate-100 rounded-md w-12"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="inline-student-form" class="hidden" aria-hidden="true">
-                    <input type="hidden" id="edit-id">
-                    <input type="text" id="in-studentName" value="">
-                    <input type="text" id="in-fatherName" value="">
-                    <input type="text" id="in-dob" value="">
-                    <input type="text" id="in-mobile" value="">
-                    <input type="text" id="in-aadhar" value="">
-                    <input type="text" id="in-address" value="">
-                    <select id="in-sclass">
-                        <option value="General">General</option>
-                    </select>
-                    <input type="text" id="in-section" value="" placeholder="Section (Opt)">
-                    <select id="in-gender">
-                        <option value="Other">Other</option>
-                    </select>
-                    <input type="text" id="in-customField1" value="">
-                    <input type="text" id="in-customField2" value="">
-                    <input type="text" id="in-customField3" value="">
-                    <input type="text" id="in-customField4" value="">
-                    <input type="text" id="in-customField5" value="">
-                    <input type="file" id="photo-upload" accept="image/*">
-                    <input type="file" id="photo-capture" accept="image/*" capture="environment">
-                    <button type="button" id="remove-photo-btn" class="hidden"></button>
-                    <div id="photo-upload-label"></div>
-                    <div id="upload-btn-text"></div>
-                    <img id="photo-preview-img" src="" alt="">
-                    <div id="photo-placeholder"></div>
-                    <div id="photo-placeholder-icon"></div>
-                </div>
-
-                <!-- Footer: Precision Mirroring -->
-                <footer class="home-footer px-4 shrink-0">
-                    <div id="footer-pagination" class="w-full flex items-center justify-between gap-2">
-                        <div class="flex items-center shrink-0 gap-1.5">
-                            <i class="fa-solid fa-id-card text-emerald-600 text-[12px]"></i>
-                            <span class="text-[11px] font-black tracking-widest text-emerald-600">IDentify</span>
-                        </div>
-
-                        <div id="footer-pagination-controls" class="flex items-center gap-3">
-                            <button onclick="scrollTableRows(-1)"
-                                class="w-8 h-8 flex items-center justify-center text-emerald-700 active:scale-90 transition">
-                                <i class="fa-solid fa-chevron-left"></i>
-                            </button>
-                            <span id="footer-page-info"
-                                class="text-[11px] font-bold text-emerald-600 uppercase tracking-tighter">Page 1 of
-                                1</span>
-                            <button onclick="scrollTableRows(1)"
-                                class="w-8 h-8 flex items-center justify-center text-emerald-700 active:scale-90 transition">
-                                <i class="fa-solid fa-chevron-right"></i>
-                            </button>
-                        </div>
-
-                        <div id="footer-count-wrapper"
-                            class="text-[11px] font-bold text-emerald-600 min-w-[30px] text-right">
-                            <span id="showing-count">0/0</span>
-                        </div>
-
-                        <div id="footer-notification-wrapper" class="flex-1 text-right pr-1 hidden">
-                        </div>
-                    </div>
-                </footer>
-            </main>
-        </div>
-
-        <script>
+﻿
         function sanitizeHTML(str) {
                 if (str == null) return '';
                 return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
@@ -1674,11 +1192,7 @@
                         setTimeout(() => {
                             showTab('records');
                             activeStatusFilter = filterType;
-                            setBlankRecordMode('none');
-                            if (isBin) {
-                                const binBtn = document.getElementById('btn-recycle-bin');
-                                if (binBtn) binBtn.style.display = 'flex';
-                            }
+                            setBlankRecordMode(isBin ? 'recycleBin' : 'none');
                             
                             // Show toast logic
                             if (filterType === 'all') showToast('<span class="material-symbols-outlined text-[18px] mr-2" style="font-variation-settings: \'FILL\' 1; vertical-align: middle;">done_all</span> Selection Activated');
@@ -1690,13 +1204,11 @@
                             // Use the single source of truth for filtering
                             filterRecords();
                             
-                            const selectionSet = syncSelectedRecordsSection();
-                            selectionSet.clear();
+                            selectedRecords.clear();
                             let first30 = currentRenderedRecords.slice(0, 30);
                             if (first30.length > 0) {
-                                first30.forEach(x => selectionSet.add(String(x.id)));
+                                first30.forEach(x => selectedRecords.add(String(x.id)));
                             }
-                            selectedRecords = selectionSet;
                             
                             renderCurrentRecordsPage();
                             updateBulkHeader();
@@ -2070,12 +1582,10 @@
                         serverCallSilent('updateRecord', [finalRec], () => resolve(), reject);
                     });
                     setRecordSyncState(finalRec, 'synced');
-                    if (typeof window.syncOfflineQueueNow === 'function') window.syncOfflineQueueNow();
                     renderCurrentRecordsPage();
                 } catch (err) {
                     console.error('Verified sync failed:', err);
                     setRecordSyncState(syncingRec, 'pending');
-                    if (typeof window.syncOfflineQueueNow === 'function') window.syncOfflineQueueNow();
                     renderCurrentRecordsPage();
                 }
             }
@@ -3750,22 +3260,6 @@
                 permDeleteRecordFromBin(id);
             }
 
-            function getVisibleBinRecords() {
-                const source = (Array.isArray(currentRenderedRecords) && currentRenderedRecords.length > 0)
-                    ? currentRenderedRecords
-                    : bin;
-                return (Array.isArray(source) ? source : []).filter(r => r && (r.isDeleted === true || String(r.isDeleted).toLowerCase() === 'true'));
-            }
-
-            function pruneBinSelection(selectionSet = syncSelectedRecordsSection()) {
-                const visibleIds = new Set(getVisibleBinRecords().map(r => String(r.id)));
-                Array.from(selectionSet).forEach(id => {
-                    if (!visibleIds.has(String(id))) selectionSet.delete(id);
-                });
-                selectedRecords = selectionSet;
-                return selectionSet;
-            }
-
             function toggleBinSelection(id) {
                 const selectionSet = syncSelectedRecordsSection();
                 const sid = String(id);
@@ -3784,15 +3278,10 @@
 
             function toggleAllBinSelection() {
                 const selectionSet = syncSelectedRecordsSection();
-                const visibleBin = getVisibleBinRecords();
-                const visibleIds = visibleBin.map(x => String(x.id));
-                const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectionSet.has(id));
-                pruneBinSelection(selectionSet);
-
-                if (allVisibleSelected) {
-                    visibleIds.forEach(id => selectionSet.delete(id));
+                if (selectionSet.size === bin.length) {
+                    selectionSet.clear();
                 } else {
-                    visibleIds.forEach(id => selectionSet.add(id));
+                    bin.forEach(x => selectionSet.add(String(x.id)));
                 }
                 selectedRecords = selectionSet;
                 
@@ -3806,7 +3295,6 @@
             }
 
             function bulkBinRestore() {
-                pruneBinSelection();
                 if (selectedRecords.size === 0) return;
                 showModal('confirm', 'Restore Selected?', 'Are you sure you want to restore ' + selectedRecords.size + ' records?', () => {
                     const ids = Array.from(selectedRecords);
@@ -3831,16 +3319,13 @@
             }
 
             function bulkBinDelete() {
-                pruneBinSelection();
                 if (selectedRecords.size === 0) return;
                 const ids = Array.from(selectedRecords);
                 let count = 0;
                 ids.forEach(id => {
-                    const item = findRecordById(db, id);
                     db = db.filter(r => normalizeRecordId(r.id) !== normalizeRecordId(id));
                     try { if (window.idbDelete) idbDelete(IDB_STORE_RECORDS, id).catch(()=>{}); } catch(e){}
                     serverCallSilent('permanentDelete', [id]);
-                    if (item) addActivity('PERM_DELETE', item);
                     count++;
                 });
                 showToast(count + ' records permanently deleted');
@@ -4068,7 +3553,6 @@
                 
                 addActivity('RESTORE', item);
                 showToast('Record Restored Successfully');
-                syncSelectedRecordsSection().delete(String(id));
                 bin = db.filter(r => r.isDeleted === true || String(r.isDeleted).toLowerCase() === 'true');
                 filterRecords();
             }
@@ -4087,7 +3571,6 @@
                     
                     addActivity('PERM_DELETE', item);
                     showToast('Record Permanently Deleted');
-                    syncSelectedRecordsSection().delete(String(id));
                     bin = db.filter(r => r.isDeleted === true || String(r.isDeleted).toLowerCase() === 'true');
                     filterRecords();
             }
@@ -4108,7 +3591,6 @@
                 
                 addActivity('RESTORE', item);
                 showToast('Record Restored Successfully');
-                syncSelectedRecordsSection().delete(String(id));
                 bin = db.filter(r => r.isDeleted === true || String(r.isDeleted).toLowerCase() === 'true');
                 renderRecycleBin();
                 renderHomeAnalysis();
@@ -4130,7 +3612,6 @@
                 }
                 serverCallSilent('permanentDelete', [id], ()=>{}, ()=>{});
                 showToast('Permanently Deleted');
-                syncSelectedRecordsSection().delete(String(id));
                 bin = db.filter(r => r.isDeleted === true || String(r.isDeleted).toLowerCase() === 'true');
                 renderRecycleBin();
                 renderHomeAnalysis();
@@ -4660,7 +4141,7 @@
                     currentFileType = compFile.type;
 
                     setUploadFieldProgress('Saved Locally', 100, false);
-                    resetUploadFieldLabel('Saved Ã¢Å“â€¦');
+                    resetUploadFieldLabel('Saved ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦');
                     pendingUploadedDocument = null;
                     queueServerDraftSync();
                     renderCurrentRecordsPage();
@@ -5114,8 +4595,6 @@
                 const badge = document.getElementById('selected-count-badge');
 
                 const isRecycleBinMode = activeStatusFilter === 'recycleBin';
-                const visibleBinCount = isRecycleBinMode ? getVisibleBinRecords().length : 0;
-                if (isRecycleBinMode) pruneBinSelection(selectionSet);
                 const count = selectionSet.size;
                 const canShowBulkActions = count > 0 && (isRecycleBinMode || activeStatusFilter === 'unverified' || activeStatusFilter === 'pending' || (currentUser && currentUser.userId === 'admin' && (activeStatusFilter === 'verified' || activeStatusFilter === 'all')));
                 const filterRow = document.getElementById('class-filter-row');
@@ -5132,7 +4611,7 @@
                     if (bulkContainer) bulkContainer.classList.add('flex');
                     if (bulkSelectToggle) bulkSelectToggle.classList.remove('hidden');
                     if (bulkSelectCount) bulkSelectCount.innerText = count;
-                    if (bulkSelectIcon) bulkSelectIcon.className = `fa-solid ${count > 0 && count === (isRecycleBinMode ? visibleBinCount : currentRenderedRecords.length) ? 'fa-square-check' : 'fa-square'} text-sm text-white`;
+                    if (bulkSelectIcon) bulkSelectIcon.className = `fa-solid ${count === (isRecycleBinMode ? bin.length : currentRenderedRecords.length) ? 'fa-square-check' : 'fa-square'} text-sm text-white`;
                     if (bulkSelectToggle) bulkSelectToggle.onclick = isRecycleBinMode ? toggleAllBinSelection : bulkToggleSelectAll;
 
                     const verifyBtn = document.getElementById('btn-bulk-verify');
@@ -6209,7 +5688,7 @@
                             <!-- Contact Person & Mobile (inline, same text size) -->
                             <div class="text-[10px] text-slate-700 font-extrabold leading-normal truncate flex items-center gap-1.5">
                                 <span class="truncate"><i class="fa-solid fa-user-tie text-emerald-600 mr-1 text-[9px]"></i>${schoolConfig.contactPerson || 'Contact not set'}</span>
-                                <span class="text-slate-400">â€¢</span>
+                                <span class="text-slate-400">Ã¢â‚¬Â¢</span>
                                 <span class="text-slate-800 font-black tracking-wider uppercase shrink-0">
                                     ${schoolConfig.mobile ? `
                                         <a href="tel:${schoolConfig.mobile}" class="hover:underline hover:text-emerald-700 transition-colors">
@@ -7510,13 +6989,20 @@
                 previewRecord.verified = true;
                 previewRecord.isRestored = false;
                 
-                const verifiedLocalRec = markRecordVerifiedLocal(localRec, nowTs);
+                const idxSync = db.findIndex(x => x.id === localRec.id);
+                if (idxSync !== -1) {
+                    db[idxSync].verified = true;
+                    db[idxSync].isRestored = false;
+                    db[idxSync]._pending = true;
+                    db[idxSync]._syncStatus = 'pending';
+                    try { if (window.idbPut) idbPut(IDB_STORE_RECORDS, db[idxSync]).catch(()=>{}); } catch(e){}
+                }
                 
                 saveAndNew(true); 
 
                 // Run heavy DB/ID generation in the background
                 setTimeout(async () => {
-                    let finalRec = { ...verifiedLocalRec };
+                    let finalRec = { ...localRec };
                     
                     if (!finalRec.sn) {
                         let localMaxSn = 0;
@@ -7596,86 +7082,54 @@
                     setBlankRecordMode('student');
                 }
             }
-
-            function isRecordVerifiedForList(rec) {
-                const isReturned = rec && (String(rec.verified).toLowerCase() === 'returned' || String(rec.status).toLowerCase() === 'returned' || rec.returned === true || String(rec.returned).toLowerCase() === 'true');
-                return !!(rec && (rec.verified === true || String(rec.verified).toLowerCase() === 'true' || rec.verified === 'Completed') && !isReturned);
-            }
-
-            function isRecordUnverifiedForList(rec) {
-                return !!(rec && !rec.isDeleted && !isRecordVerifiedForList(rec) && hasRecordDocument(rec));
-            }
-
-            function getNextUnverifiedRecord(currentId) {
-                const source = (Array.isArray(currentRenderedRecords) && currentRenderedRecords.length > 0) ? currentRenderedRecords : db;
-                const currentIndex = (Array.isArray(source) ? source : []).findIndex(rec => rec && String(rec.id) === String(currentId));
-                const matchesClass = (rec) => activeClassFilter === 'all' || rec.sclass === activeClassFilter;
-                const candidates = (Array.isArray(source) ? source : []).filter(rec => rec && String(rec.id) !== String(currentId) && matchesClass(rec) && isRecordUnverifiedForList(rec));
-                if (currentIndex !== -1) {
-                    const after = candidates.find(rec => source.findIndex(item => item && String(item.id) === String(rec.id)) > currentIndex);
-                    if (after) return after;
-                }
-                return candidates[0] || null;
-            }
-
-            function markRecordVerifiedLocal(record, nowTs) {
-                const patch = {
-                    verified: true,
-                    isRestored: false,
-                    returned: false,
-                    status: 'verified',
-                    draftStatus: '',
-                    verifiedBy: getCurrentUserName(),
-                    verifiedAt: getFormattedTimestamp(nowTs),
-                    updatedAt: nowTs,
-                    updatedBy: getCurrentUserName(),
-                    _pending: true,
-                    _syncStatus: 'pending'
-                };
-                const idx = db.findIndex(x => String(x.id) === String(record.id));
-                if (idx !== -1) {
-                    db[idx] = { ...db[idx], ...patch };
-                    try { if (window.idbPut) idbPut(IDB_STORE_RECORDS, db[idx]).catch(()=>{}); } catch(e){}
-                    return db[idx];
-                }
-                const finalRec = { ...record, ...patch };
-                db.unshift(finalRec);
-                try { if (window.idbPut) idbPut(IDB_STORE_RECORDS, finalRec).catch(()=>{}); } catch(e){}
-                return finalRec;
-            }
-
             async function verifyAndGoNext() {
                 if (isActionPending) return;
-                if (typeof commitUnsavedPreviewRecord === 'function') commitUnsavedPreviewRecord();
+                commitUnsavedPreviewRecord();
                 if (!previewRecord || !previewRecord.id) return;
                 isActionPending = true;
                 const localRec = { ...previewRecord };
                 const nowTs = Date.now();
                 
-                const nextRecord = getNextUnverifiedRecord(localRec.id);
+                // Determine next record BEFORE any filters or renders modify the currentRenderedRecords list
+                let nextRecord = null;
+                if (currentRenderedRecords && currentRenderedRecords.length > 0) {
+                    const idx = currentRenderedRecords.findIndex(r => r && String(r.id) === String(localRec.id));
+                    if (idx !== -1) {
+                        if (idx + 1 < currentRenderedRecords.length) {
+                            nextRecord = currentRenderedRecords[idx + 1];
+                        } else if (idx > 0) {
+                            nextRecord = currentRenderedRecords[idx - 1];
+                        }
+                    }
+                }
                 
                 showToast((localRec.studentName || 'Record') + ' Verified Successfully');
                 
-                const verifiedLocalRec = markRecordVerifiedLocal(localRec, nowTs);
+                const idxSync = db.findIndex(x => x.id === localRec.id);
+                if (idxSync !== -1) {
+                    db[idxSync].verified = true;
+                    db[idxSync].isRestored = false;
+                    db[idxSync]._pending = true;
+                    db[idxSync]._syncStatus = 'pending';
+                    try { if (window.idbPut) idbPut(IDB_STORE_RECORDS, db[idxSync]).catch(()=>{}); } catch(e){}
+                }
                 
                 filterRecords();
                 
                 if (nextRecord) {
                     isPendingBatch = true;
-                    isActionPending = false;
                     openStudentDetailPopup(nextRecord.id, false, true);
                 } else {
                     isPendingBatch = false;
                     previewRecord = null;
-                    isActionPending = false;
                     setBlankRecordMode('none');
                     showTab('records');
-                    showToast('Sab pending records verify ho gaye! 🎉');
+                    showToast('Sab pending records verify ho gaye! ðŸŽ‰');
                 }
 
                 // Run heavy operations in the background
                 setTimeout(async () => {
-                    let finalRec = { ...verifiedLocalRec };
+                    let finalRec = { ...localRec };
                     
                     if (!finalRec.sn) {
                         let localMaxSn = 0;
@@ -8052,294 +7506,8 @@
             } else {
                 init();
             }
-        </script>
+        
 
-
-
-    <div id="account-modal"
-            class="absolute inset-0 z-[10900] hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div class="popup-card rounded-3xl p-6 max-w-md w-full shadow-2xl">
-                <div class="flex items-center justify-between border-b border-slate-200 pb-4 mb-4">
-                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2"><i data-lucide="user-cog"
-                            class="w-5 h-5 text-emerald-600"></i> Update Login</h3>
-                    <button onclick="closeAccountModal()" class="popup-close p-2 rounded-full transition"><i
-                            data-lucide="x"></i></button>
-                </div>
-                <div class="space-y-3">
-                    <div class="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                        Logged in as: <span id="account-current-user" class="font-black"></span>
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold uppercase text-emerald-700 mb-1">Current
-                            Password</label>
-                        <input id="account-current-password" type="password"
-                            class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                            placeholder="Current password">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold uppercase text-emerald-700 mb-1">New User ID</label>
-                        <input id="account-new-user-id" type="text"
-                            class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                            placeholder="New user id">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold uppercase text-emerald-700 mb-1">New Password</label>
-                        <input id="account-new-password" type="password"
-                            class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500"
-                            placeholder="New password">
-                    </div>
-                </div>
-                <div class="mt-5 flex gap-3">
-                    <button type="button" onclick="closeAccountModal()"
-                        class="flex-1 py-3 bg-slate-200 text-slate-800 rounded-xl font-bold flex items-center justify-center gap-2"><i
-                            data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
-                    <button type="button" onclick="saveAccountCredentials()"
-                        class="flex-1 py-3 bg-emerald-700 text-white rounded-xl font-bold flex items-center justify-center gap-2"><i
-                            data-lucide="save" class="w-4 h-4"></i> Update</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="custom-modal"
-            class="absolute inset-0 z-[9999] hidden flex items-center justify-center p-4 modal-bg bg-black/50 backdrop-blur-sm">
-            <div class="popup-card rounded-3xl p-8 max-sm w-full shadow-2xl transform transition-all scale-100 relative">
-                <button id="modal-close-icon" class="absolute top-5 right-5 text-slate-400 hover:text-slate-600 hidden transition-colors" onclick="closeModal()">
-                    <i class="fa-solid fa-xmark text-2xl"></i>
-                </button>
-                <div id="modal-icon" class="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"></div>
-                <div id="modal-subtitle" class="hidden text-emerald-600 font-extrabold text-base text-center mb-1"></div>
-                <h3 id="modal-title" class="text-xl font-bold text-center mb-2"></h3>
-                <p id="modal-msg" class="text-slate-500 text-center text-sm mb-6"></p>
-                <div id="modal-progress-wrap" class="hidden mb-6">
-                    <div class="h-2 overflow-hidden rounded-full bg-emerald-100">
-                        <div id="modal-progress-bar"
-                            class="h-full rounded-full bg-emerald-500 transition-all duration-300" style="width: 0%">
-                        </div>
-                    </div>
-                    <div id="modal-progress-text" class="mt-2 text-center text-xs font-semibold text-emerald-700">0%
-                    </div>
-                </div>
-                <div id="modal-actions" class="flex gap-3 mt-4"></div>
-            </div>
-        </div>
-
-        <div id="status-card"
-            class="absolute top-5 left-5 right-5 z-[10000] hidden rounded-2xl border border-emerald-100 bg-white/95 shadow-2xl backdrop-blur-sm overflow-hidden">
-            <div id="status-progress-bar" class="h-1.5 w-full bg-emerald-500 transition-all duration-300"
-                style="width: 18%"></div>
-            <div class="p-4">
-                <div class="flex items-start gap-3">
-                    <div id="status-icon"
-                        class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div id="status-title" class="text-sm font-extrabold text-slate-800">Working</div>
-                        <div id="status-message" class="mt-1 text-xs leading-5 text-slate-500">Please wait...</div>
-                    </div>
-                    <button id="status-close-btn" type="button"
-                        class="hidden rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
-                        <i data-lucide="x" class="w-4 h-4"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div id="activity-modal"
-            class="absolute inset-0 z-[9990] hidden flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div class="popup-card rounded-3xl p-6 max-w-md w-full shadow-2xl flex flex-col max-h-[80vh]">
-                <div class="flex justify-between items-center mb-4 border-b pb-4">
-                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2"><i data-lucide="activity"
-                            class="text-emerald-600"></i> Activity</h3>
-                    <button onclick="document.getElementById('activity-modal').classList.add('hidden')"
-                        class="popup-close p-2 rounded-full transition"><i data-lucide="x"></i></button>
-                </div>
-                <div class="text-xs text-slate-400 mb-2 italic">Add / Update / Delete records history</div>
-                <div id="activity-content" class="flex-1 overflow-y-auto custom-scroll system-scroll space-y-2 p-1">
-                </div>
-                <div class="mt-4 text-center">
-                    <button onclick="clearActivity()" class="text-xs text-rose-500 hover:underline">Clear
-                        Activity</button>
-                </div>
-            </div>
-        </div>
-
-
-
-        <div id="camera-modal" class="absolute inset-0 z-[100] bg-slate-900/90 hidden items-center justify-center p-4">
-            <div class="bg-white rounded-2xl w-full max-w-lg overflow-hidden flex flex-col shadow-2xl">
-                <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
-                    <h3 class="font-bold text-slate-700">Capture</h3>
-                    <button onclick="closeCameraModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x"
-                            class="w-5 h-5"></i></button>
-                </div>
-                <div class="w-full aspect-square bg-black relative flex items-center justify-center overflow-hidden">
-                    <video id="camera-video" class="w-full h-full object-cover" autoplay playsinline></video>
-                    <div id="camera-guides"
-                        class="absolute inset-0 pointer-events-none flex items-center justify-center opacity-40">
-                        <div class="w-48 h-56 border-2 border-dashed border-white rounded-full"></div>
-                    </div>
-                </div>
-                <div class="p-6 bg-slate-50 flex justify-center gap-4">
-                    <button id="capture-btn"
-                        class="w-16 h-16 bg-white border-4 border-emerald-500 rounded-full shadow-lg flex items-center justify-center hover:bg-emerald-50 transition"
-                        onclick="takeSnapshot()">
-                        <i data-lucide="camera" class="w-6 h-6 text-emerald-600 pointer-events-none"></i>
-                    </button>
-                </div>
-                <canvas id="camera-canvas" class="hidden"></canvas>
-            </div>
-        </div>
-
-        <!-- Student Detail Popup (Home Page Row Tap) -->
-        <div id="student-detail-popup"
-            class="absolute inset-0 z-[10800] hidden items-center justify-center p-5 bg-black/50 backdrop-blur-sm">
-            <div class="sdp-card system-card-soft rounded-[36px] w-full max-w-[360px] overflow-hidden flex flex-col"
-                style="max-height: min(90dvh, 640px);">
-                <!-- Header -->
-                <div class="flex items-center justify-between px-6 pt-5 pb-3 shrink-0 border-b border-slate-50">
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center">
-                            <i class="fa-solid fa-id-card text-emerald-600 text-sm"></i>
-                        </div>
-                        <span class="text-[13px] font-black text-slate-700 uppercase tracking-wider">Student Info</span>
-                    </div>
-                    <button onclick="closeStudentDetailPopup()"
-                        class="w-9 h-9 rounded-full bg-slate-100 hover:bg-rose-50 hover:text-rose-500 flex items-center justify-center text-slate-500 transition active:scale-90">
-                        <i class="fa-solid fa-xmark text-sm"></i>
-                    </button>
-                </div>
-                <!-- Scrollable content -->
-                <div id="student-detail-content"
-                    class="flex-1 overflow-y-auto custom-scroll system-scroll px-6 pt-3 pb-6">
-                    <!-- Filled by JS -->
-                </div>
-            </div>
-        </div>
-
-        <!-- School Config Overlay -->
-        <div id="school-config-overlay"
-            class="fixed inset-0 z-[11100] hidden items-center justify-center bg-black/60 backdrop-blur-md p-4">
-            <div
-                class="system-card-soft rounded-[40px] w-full max-w-[380px] overflow-hidden flex flex-col transform transition-all animate-in fade-in zoom-in duration-300 relative">
-                <button onclick="closeSchoolConfig()"
-                    class="absolute top-5 right-6 w-9 h-9 rounded-full bg-slate-100/50 hover:bg-rose-50 hover:text-rose-500 flex items-center justify-center text-slate-500 transition active:scale-90 z-20">
-                    <i class="fa-solid fa-xmark text-sm"></i>
-                </button>
-                <div class="px-8 pt-12 pb-6 flex flex-col items-center text-center">
-                    <div id="settings-logo-container" onclick="openImagePreviewModal(schoolConfig ? schoolConfig.logo : null)"
-                        class="w-24 h-24 rounded-3xl bg-emerald-50 flex items-center justify-center border-2 border-emerald-100 overflow-hidden shrink-0 shadow-sm cursor-pointer hover:scale-105 active:scale-95 transition-transform" title="Tap to Zoom Logo">
-                        <i class="fa-solid fa-school-flag text-4xl text-emerald-600"></i>
-                    </div>
-                    <div class="mt-4 min-w-0 max-w-full">
-                        <!-- School Name (larger) -->
-                        <h3 id="settings-school-name-display" class="text-lg font-black text-slate-800 leading-tight break-words">School Name</h3>
-                        
-                        <!-- Address (immediately under School Name, same text size) -->
-                        <div class="hidden text-[9.5px] text-slate-700 font-extrabold leading-tight truncate">
-                            <a id="settings-school-address-link" href="#" target="_blank" class="hover:underline hover:text-emerald-700 transition-colors">
-                                <i class="fa-solid fa-location-dot text-emerald-600 mr-1 text-[8.5px]"></i><span id="settings-school-address-display">--</span>
-                            </a>
-                        </div>
-
-                        <!-- Contact & Mobile (inline, same text size) -->
-                        <div class="hidden text-[9.5px] text-slate-700 font-extrabold leading-tight truncate flex items-center gap-1.5">
-                            <span class="truncate"><i class="fa-solid fa-user-tie text-emerald-600 mr-1 text-[8.5px]"></i><span id="settings-school-contact-display">--</span></span>
-                            <span class="text-slate-400">â€¢</span>
-                            <span class="text-slate-800 font-black tracking-wider uppercase shrink-0">
-                                <a id="settings-school-mobile-link" href="#" class="hover:underline hover:text-emerald-700 transition-colors">
-                                    <i class="fa-solid fa-phone text-emerald-600 mr-1 text-[8.5px]"></i><span id="settings-school-mobile-display">--</span>
-                                </a>
-                            </span>
-                        </div>
-
-                        <!-- Email (same text size) -->
-                        <div class="hidden text-[9.5px] text-slate-800 font-black tracking-wider lowercase truncate">
-                            <a id="settings-school-email-link" href="#" class="hover:underline hover:text-emerald-700 transition-colors">
-                                <i class="fa-solid fa-envelope text-emerald-600 mr-1 text-[8.5px]"></i><span id="settings-school-email-display">--</span>
-                            </a>
-                        </div>
-                    </div>
-                    <div id="settings-about-display" class="hidden"></div>
-                </div>
-
-                <div class="px-8 space-y-5 flex-1 overflow-y-auto custom-scroll system-scroll pb-10">
-
-
-
-                    <div class="hidden">
-                        <label class="block text-[10px] font-black text-emerald-600 uppercase mb-1.5 ml-1">School
-                            Name</label>
-                        <input id="config-name" type="text"
-                            class="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 focus:border-emerald-500 outline-none transition"
-                            value="Delhi Public School">
-                    </div>
-                    <div class="hidden">
-                        <label class="block text-[10px] font-black text-emerald-600 uppercase mb-1.5 ml-1">ID Code
-                            Prefix</label>
-                        <input id="config-code" type="text"
-                            class="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 focus:border-emerald-500 outline-none transition"
-                            value="DPS">
-                    </div>
-
-
-
-                    <div
-                        class="bg-emerald-50 rounded-3xl p-4 border border-emerald-100 flex flex-col items-center mt-4">
-                        <i class="fa-solid fa-image text-emerald-600 mb-2"></i>
-
-                    </div>
-                    <div onclick="openFormBuilder()"
-                        class="bg-blue-50 rounded-3xl p-4 border border-blue-100 flex flex-col items-center cursor-pointer hover:bg-blue-100 transition">
-                        <i class="fa-solid fa-shapes text-blue-600 mb-2"></i>
-                        <span class="text-[9px] font-black text-blue-800 uppercase">Form Builder</span>
-                    </div>
-
-                    <div onclick="syncToDrive()"
-                        class="bg-indigo-50 rounded-3xl p-4 border border-indigo-100 flex flex-col items-center cursor-pointer hover:bg-indigo-100 transition">
-                        <i class="fa-brands fa-google-drive text-indigo-600 mb-2"></i>
-                        <span class="text-[9px] font-black text-indigo-800 uppercase">Send to Drive</span>
-                    </div>
-
-                    <div onclick="closeSchoolConfig(); openImportExportModal();"
-                        class="bg-emerald-50 rounded-3xl p-4 border border-emerald-100 flex flex-col items-center cursor-pointer hover:bg-emerald-100 transition">
-                        <i class="fa-solid fa-file-import text-emerald-600 mb-2"></i>
-                        <span class="text-[9px] font-black text-emerald-800 uppercase">Import Data</span>
-                    </div>
-
-                    <div onclick="logoutUser()"
-                        class="bg-rose-50 rounded-3xl p-4 border border-rose-100 flex flex-col items-center cursor-pointer hover:bg-rose-500 group transition">
-                        <i class="fa-solid fa-right-from-bracket text-rose-500 group-hover:text-white transition mb-2"></i>
-                        <span class="text-[9px] font-black text-rose-500 uppercase group-hover:text-white transition">Exit System</span>
-                    </div>
-
-                </div>
-
-                <div class="p-6 bg-white border-t border-slate-50 flex gap-4">
-
-                    <button onclick="closeSchoolConfig()"
-                        class="w-full py-4 rounded-2xl bg-emerald-600 text-white font-black text-sm active:scale-95 transition">CLOSE
-                        PANEL</button>
-                </div>
-            </div>
-        </div>
-    </div> <!-- End app-container -->
-
-    <!-- Form Builder Backdrops -->
-    <!-- Portable Dropdown Menus (Fixed to body for maximum layer support) -->
-    <div id="filterSortMenu" class="filter-menu">
-        <div class="menu-item" onclick="setSort('recent')"><i data-lucide="clock" class="w-3 h-3 text-slate-400"></i>
-            Recently Added</div>
-        <div class="menu-item" onclick="setSort('a-z')"><i data-lucide="arrow-down-a-z"
-                class="w-3 h-3 text-slate-400"></i> A to Z</div>
-        <div class="menu-item" onclick="setSort('z-a')"><i data-lucide="arrow-up-a-z"
-                class="w-3 h-3 text-slate-400"></i> Z to A</div>
-    </div>
-
-    <div id="filterClassMenu" class="filter-menu">
-        <!-- Dynamically populated by populateFilters() -->
-    </div>
-
-    <script>
         // Initialize customFieldsConfig at top level so all functions can access
         const savedCfg = localStorage.getItem('identifyCustomFields');
         let customFieldsConfig = { customField1: { active: false, label: 'Custom 1' }, customField2: { active: false, label: 'Custom 2' }, customField3: { active: false, label: 'Custom 3' }, customField4: { active: false, label: 'Custom 4' }, customField5: { active: false, label: 'Custom 5' } };
@@ -9575,24 +8743,8 @@
             });
         }
             // --- Cropper helper functions are imported from cropper-helper.js ---
-    </script>
-    <div id="crop-modal" class="fixed inset-0 bg-black/60 z-[999] hidden items-center justify-center p-4">
-        <div class="bg-white rounded-3xl p-6 w-full max-w-md flex flex-col shadow-2xl">
-            <h3 class="font-black text-xl text-slate-800 mb-4">Crop Photo</h3>
-            <div class="w-full h-[60vh] max-h-[400px] bg-slate-100 relative rounded-xl overflow-hidden mb-6">
-                <img id="crop-modal-img" class="max-w-full block">
-            </div>
-            <div class="flex justify-end gap-3 mt-auto">
-                <button onclick="closeCropModal()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition-all active:scale-95">Cancel</button>
-                <button onclick="applyCrop()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all shadow-sm active:scale-95 flex items-center gap-2">
-                    <i class="fa-solid fa-crop-simple"></i> Apply Crop
-                </button>
-            </div>
-        </div>
-    </div>
+    
 
-    <!-- Mobile Login Keyboard Fix -->
-    <script>
         document.addEventListener('DOMContentLoaded', () => {
             const overlay = document.getElementById('login-overlay');
             if(overlay) {
@@ -9614,13 +8766,13 @@
                 }
             }
         });
-    </script>
-    <script>
+    
+
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js');
         }
-    </script>
-    <script>
+    
+
     let ie_importParsedData = [];
     let ie_importHeaders = [];
 
@@ -10045,10 +9197,8 @@
     
     // Expose necessary functions to the global scope for inline HTML handlers
     
-    </script>
+    
 
-    <!-- Swipe to Back Functionality -->
-    <script>
     (function() {
         let touchstartX = 0;
         let touchstartY = 0;
@@ -10140,8 +9290,8 @@
             window.ModalManager.pop();
         }
     })();
-    </script>
-    <script>
+    
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js').catch(err => {
@@ -10149,11 +9299,5 @@
                 });
             });
         }
-    </script>
-</body>
-
-</html>
-
-
-
+    
 

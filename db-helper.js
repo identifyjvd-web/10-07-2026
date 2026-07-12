@@ -113,15 +113,20 @@ function shouldSyncRecordToServer(fn, args) {
     const isSyncableFn = ['addRecord', 'submitStudentData', 'updateRecord', 'deleteRecord', 'restoreRecord', 'permanentDelete'].includes(fn);
     if (!isSyncableFn) return false;
 
+    if (fn === 'permanentDelete') {
+        const firstArg = args && args[0];
+        return !!(firstArg && (typeof firstArg === 'string' || firstArg.id));
+    }
+
     const record = getRecordForSync(fn, args);
-    if (fn === 'deleteRecord' || fn === 'restoreRecord' || fn === 'permanentDelete') {
+    if (fn === 'deleteRecord' || fn === 'restoreRecord') {
         return isVerifiedRecordForSync(record);
     }
 
     return isVerifiedRecordForSync(record);
 }
 
-window.addEventListener('online', async () => {
+async function syncOfflineQueueNow() {
     const queue = await SchoolLocalDB.getAllSyncQueue();
     const syncableQueue = queue.filter(item => item.status === 'Verified' || item.status === 'Deleted');
     const droppedQueue = queue.filter(item => item.status === 'Draft' || item.status === 'Imported');
@@ -151,6 +156,13 @@ window.addEventListener('online', async () => {
             setTimeout(() => showToast('Offline sync completed!'), 2000);
         }
     }
+}
+
+window.syncOfflineQueueNow = syncOfflineQueueNow;
+window.addEventListener('online', syncOfflineQueueNow);
+window.addEventListener('focus', syncOfflineQueueNow);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') syncOfflineQueueNow();
 });
 
 function serverCall(fn, args, onSuccess, onFailure) {
@@ -231,13 +243,15 @@ function serverCallSilent(fn, args, onSuccess, onFailure) {
 
         if (isOffline) {
             handleOfflineEnqueue();
-            if (onSuccess) onSuccess(recData);
+            if (onFailure) onFailure(new Error("Offline: queued for sync"));
+            else if (onSuccess) onSuccess(recData);
             return;
         }
 
         serverCall(fn, args, onSuccess, (err) => {
             handleOfflineEnqueue(); // Re-enqueue on failure
-            if (onSuccess) onSuccess(recData); // Fail gracefully
+            if (onFailure) onFailure(err || new Error("Sync failed: queued for retry"));
+            else if (onSuccess) onSuccess(recData); // Fail gracefully when caller has no failure path
         });
     } else {
         serverCall(fn, args, onSuccess, onFailure);

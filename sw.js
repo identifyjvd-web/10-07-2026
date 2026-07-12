@@ -7,7 +7,7 @@ if (workbox) {
   workbox.routing.registerRoute(
     ({request}) => request.destination === 'document',
     new workbox.strategies.StaleWhileRevalidate({
-      cacheName: 'html-cache',
+      cacheName: 'html-cache-v2',
     })
   );
 
@@ -15,7 +15,7 @@ if (workbox) {
   workbox.routing.registerRoute(
     ({request}) => request.destination === 'script' || request.destination === 'style',
     new workbox.strategies.StaleWhileRevalidate({
-      cacheName: 'static-resources',
+      cacheName: 'static-resources-v2',
     })
   );
 
