@@ -282,6 +282,18 @@ async function handleFirebaseCall(fn, args, onSuccess, onFailure) {
             const docRef = doc(window.db, "records", String(cleanData.id));
             await setDoc(docRef, cleanData);
             if (onSuccess) onSuccess(data);
+        } else if (fn === 'addManyRecords') {
+            const records = args[0] || [];
+            let addedCount = 0;
+            const promises = records.map(async (rec) => {
+                const cleanData = JSON.parse(JSON.stringify(rec));
+                cleanData.updatedAt = Date.now();
+                const docRef = doc(window.db, "records", String(cleanData.id));
+                await setDoc(docRef, cleanData);
+                addedCount++;
+            });
+            await Promise.all(promises);
+            if (onSuccess) onSuccess(addedCount);
         } else if (fn === 'updateStudentData' || fn === 'updateRecord') {
             const data = args[0];
             data.updatedAt = Date.now();

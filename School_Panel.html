@@ -847,6 +847,7 @@
                     setUploadFieldProgress('Compressing...', 10, true);
                     compressImage(file, (compFile, dataUrl) => {
                         photoData = dataUrl;
+                        removeExistingDocument = false;
                         showPhotoPreview(photoData);
                         
                         if (previewRecord) {
@@ -2965,7 +2966,7 @@
                     </div>
                     <div class="flex-1 px-4 flex flex-col justify-center min-w-0">
                         <div class="font-extrabold text-[15px] text-emerald-700 truncate">${sanitizeHTML(x.studentName || 'Unnamed')}</div>
-                        <div class="text-[11.5px] text-slate-500 font-bold">${['female', 'girl', 'f'].some(g => (x.gender || '').toLowerCase().includes(g)) ? 'D/o' : 'S/o'}: ${sanitizeHTML(x.fatherName || '-')}</div>
+                        <div class="text-[11.5px] text-slate-500 font-bold">${['female', 'girl', 'f'].some(g => (x.gender || '').toLowerCase().includes(g)) ? 'D/o' : (['male', 'boy', 'm'].some(g => (x.gender || '').toLowerCase().includes(g)) ? 'S/o' : 'F:')}: ${sanitizeHTML(x.fatherName || '-')}</div>
                     </div>
                     <div class="px-4 flex flex-col items-end justify-center gap-1">
                         <div class="text-[12px] font-black text-emerald-600 uppercase tracking-tight">${sanitizeHTML(x.sclass || '-')}</div>
@@ -3888,7 +3889,7 @@
                                     </div>
                                     <div class="flex-1 px-4 flex flex-col justify-center min-w-0">
                                         <div class="font-extrabold text-[15px] text-emerald-700 truncate whitespace-nowrap">${sanitizeHTML(x.studentName || 'Unnamed')}</div>
-                                        <div class="text-[11.5px] text-slate-500 font-bold truncate whitespace-nowrap">${['female', 'girl', 'f'].some(g => (x.gender || '').toLowerCase().includes(g)) ? 'D/o' : 'S/o'}: ${sanitizeHTML(x.fatherName || '-')}</div>
+                                        <div class="text-[11.5px] text-slate-500 font-bold truncate whitespace-nowrap">${['female', 'girl', 'f'].some(g => (x.gender || '').toLowerCase().includes(g)) ? 'D/o' : (['male', 'boy', 'm'].some(g => (x.gender || '').toLowerCase().includes(g)) ? 'S/o' : 'F:')}: ${sanitizeHTML(x.fatherName || '-')}</div>
                                     </div>
                                 </div>
                                 <div class="px-4 flex items-center justify-end gap-3 min-w-[120px]">
@@ -4655,15 +4656,15 @@
                 setUploadFieldProgress('Compressing...', 10, true);
                 compressImage(file, (compFile, dataUrl) => {
                     photoData = dataUrl;
+                    removeExistingDocument = false;
                     showPhotoPreview(photoData);
                     originalFileName = compFile.name;
                     currentFileType = compFile.type;
 
                     setUploadFieldProgress('Saved Locally', 100, false);
-                    resetUploadFieldLabel('Saved Ã¢Å“â€¦');
+                    resetUploadFieldLabel('Saved ✅.');
                     pendingUploadedDocument = null;
                     queueServerDraftSync();
-                    renderCurrentRecordsPage();
                 });
             }
             function triggerPhotoUpload() {
@@ -6074,7 +6075,7 @@
                                                 ${(() => {
                                                     const isEnabled = (id) => typeof fb_standard_config !== 'undefined' && fb_standard_config[id] ? fb_standard_config[id].enabled !== false : true;
                                                     let html = '';
-                                                    if (isEnabled('fatherName')) html += renderPreviewRow('fa-person', ['female', 'girl', 'f'].some(g => (rec.gender || '').toLowerCase().includes(g)) ? 'D/o' : 'S/o', rec.fatherName);
+                                                    if (isEnabled('fatherName')) html += renderPreviewRow('fa-person', ['female', 'girl', 'f'].some(g => (rec.gender || '').toLowerCase().includes(g)) ? 'D/o' : (['male', 'boy', 'm'].some(g => (rec.gender || '').toLowerCase().includes(g)) ? 'S/o' : 'F:'), rec.fatherName);
                                                     if (isEnabled('sclass')) html += renderPreviewRow('fa-book', 'Class', rec.sclass);
                                                     const hideGender = schoolConfig && schoolConfig.hideGenderInPreview;
                                                     if (isEnabled('gender') && !hideGender) html += renderPreviewRow('fa-venus-mars', 'Gender', rec.gender);
@@ -6816,14 +6817,12 @@
                             <div id="blank-photo-placeholder" class="flex items-center justify-center h-full w-full" style="${isPhotoPresent ? 'display:none' : ''}">
                                 <i class="fa-solid fa-user-tie text-[#05996c] text-[150px]"></i>
                             </div>
-                            ${isPhotoPresent ? `
-                            <button type="button" id="blank-crop-photo-btn" onclick="event.stopPropagation(); openCropModal();" class="absolute bottom-1 left-1 w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform hover:bg-blue-600" title="Crop Photo">
+                            <button type="button" id="blank-crop-photo-btn" onclick="event.stopPropagation(); openCropModal();" class="absolute bottom-1 left-1 w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform hover:bg-blue-600" title="Crop Photo" style="${isPhotoPresent ? '' : 'display:none;'}">
                                 <i class="fa-solid fa-crop-simple text-[11px]"></i>
                             </button>
-                            <button type="button" id="blank-remove-photo-btn" onclick="event.stopPropagation(); removePhoto();" class="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform hover:bg-rose-600" title="Delete Photo">
+                            <button type="button" id="blank-remove-photo-btn" onclick="event.stopPropagation(); removePhoto();" class="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform hover:bg-rose-600" title="Delete Photo" style="${isPhotoPresent ? '' : 'display:none;'}">
                                 <i class="fa-solid fa-xmark text-[12px]"></i>
                             </button>
-                            ` : ''}
                         </div>`;
                         })() : ''}
                         
@@ -6940,7 +6939,7 @@
                     </div>
                     <div class="flex-1 px-4 flex flex-col justify-center min-w-0">
                         <div class="font-extrabold text-[15px] text-emerald-700 truncate whitespace-nowrap">${sanitizeHTML(x.studentName || 'Unnamed')}</div>
-                        <div class="text-[11.5px] text-slate-500 font-bold truncate whitespace-nowrap">${['female', 'girl', 'f'].some(g => (x.gender || '').toLowerCase().includes(g)) ? 'D/o' : 'S/o'}: ${sanitizeHTML(x.fatherName || '-')}</div>
+                        <div class="text-[11.5px] text-slate-500 font-bold truncate whitespace-nowrap">${['female', 'girl', 'f'].some(g => (x.gender || '').toLowerCase().includes(g)) ? 'D/o' : (['male', 'boy', 'm'].some(g => (x.gender || '').toLowerCase().includes(g)) ? 'S/o' : 'F:')}: ${sanitizeHTML(x.fatherName || '-')}</div>
                     </div>
                 </div>
                 <div class="px-4 flex items-center justify-end gap-3 min-w-[120px] record-selection-zone" data-id="${x.id}" data-hasdoc="${hasDoc}">
@@ -6979,7 +6978,7 @@
                     </div>
                     <div class="flex-1 px-4 flex flex-col justify-center min-w-0">
                         <div class="font-extrabold text-[15px] text-emerald-700 truncate whitespace-nowrap">${sanitizeHTML(x.studentName || 'Unnamed')}</div>
-                        <div class="text-[11.5px] text-slate-500 font-bold truncate whitespace-nowrap">${['female', 'girl', 'f'].some(g => (x.gender || '').toLowerCase().includes(g)) ? 'D/o' : 'S/o'}: ${sanitizeHTML(x.fatherName || '-')}</div>
+                        <div class="text-[11.5px] text-slate-500 font-bold truncate whitespace-nowrap">${['female', 'girl', 'f'].some(g => (x.gender || '').toLowerCase().includes(g)) ? 'D/o' : (['male', 'boy', 'm'].some(g => (x.gender || '').toLowerCase().includes(g)) ? 'S/o' : 'F:')}: ${sanitizeHTML(x.fatherName || '-')}</div>
                     </div>
                 </div>
 
@@ -7497,6 +7496,46 @@
                 renderCurrentRecordsPage();
             }
 
+            window.commitUnsavedPreviewRecord = function() {
+                if (!previewRecord) return;
+                
+                // Clear the draft state so it doesn't get deleted on close
+                if (typeof clearDraft === 'function') clearDraft();
+
+                // Add to DB if not already there
+                const existingIdx = db.findIndex(r => String(r.id) === String(previewRecord.id));
+                if (existingIdx === -1) {
+                    db.unshift(previewRecord);
+                    try { if (window.idbPut) idbPut(IDB_STORE_RECORDS, previewRecord).catch(()=>{}); } catch(e){}
+                } else {
+                    db[existingIdx] = previewRecord;
+                    try { if (window.idbPut) idbPut(IDB_STORE_RECORDS, previewRecord).catch(()=>{}); } catch(e){}
+                }
+
+                // Call addRecord if not verified/serverSaved
+                if (!previewRecord._serverSaved && !previewRecord.verified) {
+                    serverCallSilent('addRecord', [previewRecord], () => {
+                        previewRecord._serverSaved = true;
+                    }, () => {});
+                }
+            };
+
+            window.saveAndNew = function(skipToast) {
+                if (previewRecord && isPreviewFromSave) {
+                    previewRecord.status = previewRecord.status || 'pending';
+                    if (previewRecord.photoData || previewRecord.docUrl || previewRecord.docFileId) {
+                        previewRecord.status = 'unverified';
+                    }
+                    previewRecord._syncStatus = 'pending';
+                    previewRecord._pending = true;
+                    if (typeof commitUnsavedPreviewRecord === 'function') commitUnsavedPreviewRecord();
+                }
+                if (!skipToast) showToast('Starting new record...');
+                resetForm(true);
+                setBlankRecordMode('student');
+                isPreviewFromSave = false;
+            };
+
             async function verifyFromPreview() {
                 if (isActionPending) return;
                 if (!previewRecord || !previewRecord.id) return;
@@ -7504,15 +7543,28 @@
                 const localRec = { ...previewRecord };
                 const nowTs = Date.now();
                 
-                // Instant feedback & clear form
+                // Find next record before modifying current list
+                const list = (currentRenderedRecords && currentRenderedRecords.length > 0 && currentRenderedRecords.findIndex(r => r.id === previewRecord.id) !== -1) 
+                    ? currentRenderedRecords 
+                    : db;
+                const currentIndex = list.findIndex(r => r.id === previewRecord.id);
+                let nextRecToOpen = null;
+                if (currentIndex >= 0 && currentIndex < list.length - 1) {
+                    nextRecToOpen = list[currentIndex + 1];
+                }
+
+                // Instant feedback
                 showToast((localRec.studentName || 'Record') + ' Verified Successfully');
-                setChipFilter('status', 'verified'); 
                 previewRecord.verified = true;
                 previewRecord.isRestored = false;
                 
                 const verifiedLocalRec = markRecordVerifiedLocal(localRec, nowTs);
                 
-                saveAndNew(true); 
+                if (nextRecToOpen) {
+                    openStudentDetailPopup(nextRecToOpen, false, isPendingBatch);
+                } else {
+                    saveAndNew(true); 
+                }
 
                 // Run heavy DB/ID generation in the background
                 setTimeout(async () => {
@@ -7646,6 +7698,7 @@
 
             async function verifyAndGoNext() {
                 if (isActionPending) return;
+                if (typeof clearDraft === 'function') clearDraft();
                 if (typeof commitUnsavedPreviewRecord === 'function') commitUnsavedPreviewRecord();
                 if (!previewRecord || !previewRecord.id) return;
                 isActionPending = true;
@@ -10153,6 +10206,7 @@
 </body>
 
 </html>
+
 
 
 
